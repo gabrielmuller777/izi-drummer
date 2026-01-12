@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build": "vite build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -11,5 +12,8 @@
   "license": "ISC",
   "dependencies": {
     "tone": "^15.1.22"
+  },
+  "devDependencies": {
+    "vite": "^7.3.1"
   }
 }

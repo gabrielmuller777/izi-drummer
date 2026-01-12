@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>IZI-DRUMMER</title>
+  <script type="module" crossorigin src="/assets/index-Dr2yyhCq.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-B1jhueM3.css">
+</head>
+
+<body>
+    <div id="app">
+        <h1>IZI-DRUMMER</h1>
+
+        <div class="rack-header">
+            <h3>Drum Kit Configuration</h3>
+            <button id="add-piece-button" style="background: #9C27B0;">+ Add New Piece</button>
+        </div>
+
+        <div id="drum-rack-container" class="drum-rack">
+        </div>
+
+        <div class="controls">
+            <button id="play-button">Play / Stop</button>
+
+            <div class="bpm-box">
+                <label>BPM</label>
+                <input type="number" id="bpm-input" value="120" min="40" max="300">
+            </div>
+
+            <button id="clear-button" class="btn-danger">Clear Grid</button>
+            <button id="export-button" class="btn-export">Export WAV</button>
+        </div>
+
+        <hr>
+
+        <div class="editor-container">
+            <h3>1. Create Pattern</h3>
+
+            <div class="pattern-controls">
+                <input type="text" id="part-name" placeholder="Name (e.g. Verse)">
+                <div class="steps-box"
+                    style="display: flex; align-items: center; gap: 5px; background: #333; padding: 0 8px; border-radius: 4px; border: 1px solid #555;">
+                    <label style="font-size: 0.8rem; color: #aaa;">Steps:</label>
+                    <input type="number" id="pattern-steps" value="16" min="1" max="64"
+                        style="width: 40px; border: none; text-align: center;">
+                </div>
+                <button id="save-part-button">Create new pattern</button>
+                <span id="auto-save-status" style="font-size: 0.8rem; color: #888; margin-left: 10px;"></span>
+            </div>
+
+            <div class="library-container">
+                <h4>Saved Patterns (Click to Edit):</h4>
+                <div id="library-list" class="pattern-list">
+                    <span style="color:#666; font-style:italic; font-size: 0.9rem;">No patterns saved yet.</span>
+                </div>
+            </div>
+
+            <canvas id="grid-canvas" width="800" height="100"></canvas>
+        </div>
+
+        <div class="timeline-container">
+            <h3>2. Arrange Song</h3>
+            <p style="font-size: 0.8rem; color: #888; margin-top: -10px;">Left-Click to Place | Right-Click to Delete
+            </p>
+
+            <div class="timeline-wrapper">
+                <canvas id="timeline-canvas" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
