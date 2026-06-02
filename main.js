@@ -24,9 +24,24 @@ let drumKit = [
 ];
 
 // Audio Setup
-const kit = new Tone.Sampler().toDestination();
+const kit = new Tone.Sampler({
+    urls: {},
+    volume: -10 // Initial headroom to prevent clipping
+});
+
+// Effects chain to "glue" sounds and prevent "farting"/clipping
+const compressor = new Tone.Compressor({
+    threshold: -18,
+    ratio: 4
+});
+
+const limiter = new Tone.Limiter(-1).toDestination();
+
+// Chain: Sampler -> Compressor -> Limiter -> Output
+kit.chain(compressor, limiter);
+
 const recorder = new Tone.Recorder();
-kit.connect(recorder);
+limiter.connect(recorder); // Record the final processed signal
 
 // UI References
 const gridCanvas = document.getElementById('grid-canvas');
@@ -181,7 +196,10 @@ function drawGrid() {
     }
 }
 
-gridCanvas.addEventListener('mousedown', (e) => {
+gridCanvas.addEventListener('mousedown', async (e) => {
+    // Ensure AudioContext is started on first interaction
+    if (Tone.context.state !== 'running') await Tone.start();
+
     const rect = gridCanvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -198,9 +216,13 @@ gridCanvas.addEventListener('mousedown', (e) => {
     gridData[row][step] = gridData[row][step] === 1 ? 0 : 1;
     drawGrid();
 
-    // Play Sound
-    if (gridData[row][step] === 1 && kit.loaded) {
-        kit.triggerAttackRelease(drumKit[row].note, "8n");
+    // Play Sound - Removed kit.loaded check as it can be unreliable with dynamic loading
+    if (gridData[row][step] === 1) {
+        try {
+            kit.triggerAttackRelease(drumKit[row].note, "8n");
+        } catch (err) {
+            console.warn("Sampler not ready or note not found:", err);
+        }
     }
 
     // Auto-Save
@@ -369,56 +391,57 @@ let globalStep = 0;
 
 Tone.Transport.scheduleRepeat((time) => {
     
-    // 1. Sort timeline by position so we play in order
-    const sortedTimeline = songTimeline.sort((a, b) => a.startBar - b.startBar);
-
-    let foundBlock = null;
+    let patternToPlay = null;
     let localStep = 0;
-    let accumulatedSteps = 0;
 
-    // 2. Find which block we should be playing right now
-    for (let i = 0; i < sortedTimeline.length; i++) {
-        const block = sortedTimeline[i];
-        const pattern = patternLibrary[block.name];
-
-        if (pattern) {
-            // How long is this specific pattern? (e.g., 7 steps)
-            const patternLength = pattern[0].length;
-
-            // Is the current globalStep inside this block's window?
-            if (globalStep >= accumulatedSteps && globalStep < accumulatedSteps + patternLength) {
-                foundBlock = block;
-                localStep = globalStep - accumulatedSteps; // 0 to 6
+    if (songTimeline.length === 0) {
+        // PREVIEW MODE: If nothing is in the timeline, loop the current grid editor
+        patternToPlay = gridData;
+        localStep = globalStep % currentSteps;
+    } else {
+        // SONG MODE: Find which block we should be playing based on its startBar
+        // Assuming 1 bar = 16 steps for simplicity in the timeline calculation
+        const STEPS_PER_BAR = 16; 
+        
+        let foundBlock = null;
+        for (const block of songTimeline) {
+            const pattern = patternLibrary[block.name];
+            if (pattern) {
+                const patternLength = pattern[0].length;
+                const blockStartStep = block.startBar * STEPS_PER_BAR;
                 
-                // --- VISUAL PLAYHEAD UPDATE (Optional) ---
-                // This moves the red line to the correct visual block
-                // (We use a simple calculation to approximate the visual position)
-                // const visualX = (block.startBar * TIMELINE_BAR_WIDTH) + (localStep * (TIMELINE_BAR_WIDTH / patternLength));
-                // drawTimeline(visualX); 
-                
-                break; // Stop looking, we found the active block
+                if (globalStep >= blockStartStep && globalStep < blockStartStep + patternLength) {
+                    foundBlock = block;
+                    patternToPlay = pattern;
+                    localStep = globalStep - blockStartStep;
+                    break;
+                }
             }
+        }
 
-            // If not, add this block's length to our counter and check the next one
-            accumulatedSteps += patternLength;
+        // If we are past the last block in the timeline, stop playback
+        const lastBlock = songTimeline.reduce((max, b) => {
+            const p = patternLibrary[b.name];
+            const len = p ? p[0].length : 0;
+            return Math.max(max, b.startBar * STEPS_PER_BAR + len);
+        }, 0);
+
+        if (globalStep >= lastBlock && lastBlock > 0) {
+            stopPlayback();
+            return;
         }
     }
 
     // 3. Trigger Sounds
-    if (foundBlock) {
-        const pattern = patternLibrary[foundBlock.name];
-        // We iterate through all drum rows (kick, snare, etc.)
-        for (let r = 0; r < pattern.length; r++) {
-            // Check if note exists and is active (1)
-            if (drumKit[r] && pattern[r][localStep] === 1) {
-                kit.triggerAttack(drumKit[r].note, time);
+    if (patternToPlay) {
+        for (let r = 0; r < patternToPlay.length; r++) {
+            if (drumKit[r] && patternToPlay[r][localStep] === 1) {
+                try {
+                    kit.triggerAttack(drumKit[r].note, time);
+                } catch (err) {
+                    console.error("Playback error:", err);
+                }
             }
-        }
-    } else {
-        // If we are past the last block, stop the song
-        // (accumulatedSteps now equals the total length of the song)
-        if (globalStep >= accumulatedSteps && sortedTimeline.length > 0) {
-            stopPlayback();
         }
     }
 
